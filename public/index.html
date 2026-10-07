@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Thanks Messenger</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--text:#2b2623;--muted:#8a817a;--accent:#e0813a;--mine:#fde6d2;--thanks:#fff3c4;--border:#ece5dc}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1917;--card:#262321;--text:#f1ebe4;--muted:#9b928a;--accent:#f0944d;--mine:#4a3524;--thanks:#4b4220;--border:#38332f}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px}
+header h1{font-size:17px;margin:0}header small{color:var(--muted);font-size:12px;text-align:right}
+#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:80%;padding:8px 12px;border-radius:14px;background:var(--card);border:1px solid var(--border);word-wrap:break-word;white-space:pre-wrap}
+.m.me{align-self:flex-end;background:var(--mine)}.m.thanks{background:var(--thanks)}
+.m b{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}.m i{font-size:11px;color:var(--muted);font-style:normal}
+form{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border)}
+input{flex:1;padding:11px 14px;border-radius:22px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:16px}
+button{border:0;border-radius:22px;padding:0 16px;background:var(--accent);color:#fff;font-size:15px;cursor:pointer}
+button.t{background:var(--card);color:var(--text);border:1px solid var(--border)}
+#join{margin:auto;width:min(340px,90%);background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:12px}
+#join h2{margin:0}#join button{padding:12px}#err{color:#c0392b;font-size:13px;min-height:16px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="join">
+  <h2>💛 Thanks Messenger</h2>
+  <input id="name" placeholder="Your name" maxlength="20" autocomplete="nickname">
+  <input id="pw" type="password" placeholder="Room password (if any)">
+  <div id="err"></div>
+  <button id="go">Join chat</button>
+</div>
+<header class="hide" id="hdr"><h1>💛 Thanks Messenger</h1><small id="who"></small></header>
+<div id="msgs" class="hide"></div>
+<form id="f" class="hide">
+  <button type="button" class="t" id="thx" title="Send a thank-you">💛</button>
+  <input id="txt" placeholder="Write a message…" autocomplete="off">
+  <button>Send</button>
+</form>
+<script>
+const $=id=>document.getElementById(id);
+let ws,me='';
+const THANKS=["Thank you so much! 💛","Thanks, you're the best! 🙏","Really appreciate it! ✨","Thanks a million! 🎉"];
+$('name').value=localStorage.getItem('tm_name')||'';
+function connect(){
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);
+  ws.onopen=()=>ws.send(JSON.stringify({type:'join',name:me,password:$('pw').value}));
+  ws.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.type==='denied'){$('err').textContent='Wrong password.';ws.close();return}
+    if(d.type==='history'){
+      ['join'].forEach(i=>$(i).classList.add('hide'));
+      ['hdr','msgs','f'].forEach(i=>$(i).classList.remove('hide'));
+      $('msgs').innerHTML='';d.messages.forEach(add);$('txt').focus();
+    }
+    if(d.type==='msg')add(d.message);
+    if(d.type==='presence')$('who').textContent=d.users.length+' online: '+d.users.join(', ');
+  };
+  ws.onclose=()=>{if(!$('f').classList.contains('hide'))setTimeout(connect,1500)};
+}
+function add(m){
+  const el=document.createElement('div');
+  el.className='m'+(m.name===me?' me':'')+(m.kind==='thanks'?' thanks':'');
+  const b=document.createElement('b');b.textContent=m.name;
+  const t=document.createElement('span');t.textContent=m.text;
+  const i=document.createElement('i');i.textContent=' '+new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  el.append(b,t,i);const box=$('msgs');box.appendChild(el);box.scrollTop=box.scrollHeight;
+}
+function send(text,kind){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'msg',text,kind}))}
+$('go').onclick=()=>{me=$('name').value.trim();if(!me){$('err').textContent='Enter a name.';return}
+  localStorage.setItem('tm_name',me);$('err').textContent='';connect()};
+$('f').onsubmit=e=>{e.preventDefault();const v=$('txt').value.trim();if(v){send(v,'msg');$('txt').value=''}};
+$('thx').onclick=()=>send(THANKS[Math.floor(Math.random()*THANKS.length)],'thanks');
+</script>
+</body>
+</html>
