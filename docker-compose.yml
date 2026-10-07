@@ -1,0 +1,21 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - ROOM_PASSWORD=${ROOM_PASSWORD:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - messenger-data:/data
+
+  # Free public HTTPS link via Cloudflare quick tunnel (no account needed)
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://app:3000
+    depends_on:
+      - app
+
+volumes:
+  messenger-data:
